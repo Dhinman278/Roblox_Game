@@ -1,23 +1,28 @@
 local CombatState = {}
-local stateByChar = {}
+CombatState.Data = {}
 
-local function get(char)
-	if not char then return nil end
-	if not stateByChar[char] then
-		stateByChar[char] = {
-			Combo = 0,
-		}
+function CombatState.Initialize(player)
+	CombatState.Data[player] = {
+		IsBlocking = false,
+		ParryWindow = false,
+		IsStunned = false,
+		Posture = 100,
+		HitList = {}
+	}
+end
+
+function CombatState.Update(player, key, value)
+	if CombatState.Data[player] then
+		CombatState.Data[player][key] = value
 	end
-	return stateByChar[char]
 end
 
-function CombatState.Get(char)
-	return get(char)
+function CombatState.Get(player)
+	return CombatState.Data[player]
 end
 
-function CombatState.ResetCombo(char)
-	local st = get(char)
-	st.Combo = 0
+function CombatState.Remove(player)
+	CombatState.Data[player] = nil
 end
 
 return CombatState

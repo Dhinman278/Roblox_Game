@@ -1,0 +1,6 @@
+print(100)
+print("100")
+print(true)
+print(false)    
+print(nil)
+print("GoonBlaster")

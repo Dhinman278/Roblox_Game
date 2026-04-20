@@ -1,28 +1,51 @@
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CombatEvent = ReplicatedStorage:WaitForChild("CombatEvent")
 
-local player = Players.LocalPlayer
-local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local hitRemote = Remotes:WaitForChild("FireHitbox")
+local player = game.Players.LocalPlayer
+local character = script.Parent 
+-- FIX: Humanoid is in the Character, not the Player!
+local humanoid = character:WaitForChild("Humanoid")
+local animator = humanoid:WaitForChild("Animator")
 
-local attacking = false
+-- Setup Animation
+local punchAnim = Instance.new("Animation")
+punchAnim.AnimationId = "rbxassetid://122679000956985"
+local punchTrack = animator:LoadAnimation(punchAnim)
+punchTrack.Priority = Enum.AnimationPriority.Action4 -- Higher priority
 
-local function fireM1()
-	if attacking then return end
-	attacking = true
+print("Combat Script Loaded Successfully") -- Check your Output for this!
 
-	local controlHeld = UserInputService:IsKeyDown(Enum.KeyCode.LeftControl)
-	hitRemote:FireServer(controlHeld)
-
-	task.delay(0.15, function()
-		attacking = false
-	end)
-end
-
-UserInputService.InputBegan:Connect(function(input, gp)
-	if gp then return end
+UIS.InputBegan:Connect(function(input, processed)
+	if processed then return end
+	if character:GetAttribute("IsStunned") == true then 
+		character.Humanoid.WalkSpeed = 0
+		character.Humanoid.JumpPower = 0
+		character.Humanoid.JumpHeight = 0
+		character.HumanoidRootPart.Anchored = true
+		task.delay(2, function() 
+			character.HumanoidRootPart.Anchored = false
+			character.Humanoid.WalkSpeed = 16
+			character.Humanoid.JumpPower = 50
+			character.Humanoid.JumpHeight = 7.2 end)
+		
+	return end
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		fireM1()
+		print("Click detected!") -- Debugging
+		if not punchTrack.IsPlaying then
+			punchTrack:Play()
+			CombatEvent:FireServer("Attack")
+			processed = true
+		end
+	elseif input.KeyCode == Enum.KeyCode.F then
+		CombatEvent:FireServer("Parry")
+	end
+end)
+
+
+
+UIS.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.F then
+		CombatEvent:FireServer("BlockEnd")
 	end
 end)
