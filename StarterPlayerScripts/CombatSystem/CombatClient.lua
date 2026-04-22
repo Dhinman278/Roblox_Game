@@ -16,8 +16,9 @@ punchTrack.Priority = Enum.AnimationPriority.Action4 -- Higher priority
 
 print("Combat Script Loaded Successfully") -- Check your Output for this!
 
-UIS.InputBegan:Connect(function(input, processed)
+UIS.InputBegan:Connect(function(input, processed, gps)
 	if processed then return end
+	if gps then return end
 	if character:GetAttribute("IsStunned") == true then 
 		character.Humanoid.WalkSpeed = 0
 		character.Humanoid.JumpPower = 0
@@ -44,7 +45,8 @@ end)
 
 
 
-UIS.InputEnded:Connect(function(input)
+UIS.InputEnded:Connect(function(input, gps)
+	if gps then return end
 	if input.KeyCode == Enum.KeyCode.F then
 		CombatEvent:FireServer("BlockEnd")
 	end
