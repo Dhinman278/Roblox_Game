@@ -1,16 +1,16 @@
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CombatState = require(ServerStorage.CombatState)
-local ClientCast = require(ServerStorage.ClientCast)
-local CombatEvent = ReplicatedStorage:WaitForChild("CombatEvent")
+local StateManager = require(ServerStorage.Modules.StateManager)
+local ClientCast = require(ServerStorage.Modules.ClientCast)
+local InputEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("InputEvent")
 
 -- Setup for new players
-game.Players.PlayerAdded:Connect(CombatState.Initialize)
-game.Players.PlayerRemoving:Connect(CombatState.Remove)
+game.Players.PlayerAdded:Connect(StateManager.Initialize)
+game.Players.PlayerRemoving:Connect(StateManager.Remove)
 
-CombatEvent.OnServerEvent:Connect(function(player, action)
+InputEvent.OnServerEvent:Connect(function(player, action)
 	local char = player.Character
-	local state = CombatState.Get(player)
+	local state = StateManager.Get(player)
 
 	-- Safety check for the attacker's state
 	if not state or state.IsStunned then return end
@@ -39,15 +39,15 @@ CombatEvent.OnServerEvent:Connect(function(player, action)
 
 			-- 3. THE FIX: Check for player first, fallback to the Rig model itself
 			local victimPlayer = game.Players:GetPlayerFromCharacter(victimChar)
-			local vState = CombatState.Get(victimPlayer or victimChar)
+			local vState = StateManager.Get(victimPlayer or victimChar)
 
 			if vState then
 				-- This logic now handles BOTH Players and initialized Testing Rigs
 				if vState.ParryWindow then
 					print("ATTACKER STUNNED: " .. player.Name .. " hit the parry window of " .. victimChar.Name)
-					CombatState.Update(player, "IsStunned", true)
+					StateManager.Update(player, "IsStunned", true)
 					char:SetAttribute("IsStunned", true)
-					task.delay(2, function() CombatState.Update(player, "IsStunned", false) char:SetAttribute("IsStunned", false) end)
+					task.delay(2, function() StateManager.Update(player, "IsStunned", false) char:SetAttribute("IsStunned", false) end)
 					return -- Don't deal damage if they parried
 				elseif vState.IsBlocking then
 					-- Handle blocking (Damage is mitigated, Posture is reduced)
@@ -63,7 +63,7 @@ CombatEvent.OnServerEvent:Connect(function(player, action)
 					print("HIT: Dealt 10 damage to " .. victimChar.Name)
 				end
 			else
-				-- 4. FALLBACK: For Rigs/NPCs that were never initialized in CombatState
+				-- 4. FALLBACK: For Rigs/NPCs that were never initialized in StateManager
 				VictimHumanoid:TakeDamage(10)
 				print("HIT: Dealt damage to uninitialized target: " .. victimChar.Name)
 			end
@@ -86,16 +86,16 @@ CombatEvent.OnServerEvent:Connect(function(player, action)
 
 	elseif action == "Parry" then
 		print(player.Name .. " is attempting a parry")
-		CombatState.Update(player, "ParryWindow", true)
+		StateManager.Update(player, "ParryWindow", true)
 		task.wait(0.2)
-		CombatState.Update(player, "ParryWindow", false)
+		StateManager.Update(player, "ParryWindow", false)
 		-- Transition to blocking state if they hold the button
-		CombatState.Update(player, "IsBlocking", true)
+		StateManager.Update(player, "IsBlocking", true)
 		
 	
 
 	elseif action == "BlockEnd" then
 		print(player.Name .. " stopped blocking")
-		CombatState.Update(player, "IsBlocking", false)
+		StateManager.Update(player, "IsBlocking", false)
 	end
 end)

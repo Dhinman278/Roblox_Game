@@ -1,53 +1,125 @@
 local UIS = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CombatEvent = ReplicatedStorage:WaitForChild("CombatEvent")
+
+local InputEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("InputEvent")
 
 local player = game.Players.LocalPlayer
-local character = script.Parent 
--- FIX: Humanoid is in the Character, not the Player!
-local humanoid = character:WaitForChild("Humanoid")
-local animator = humanoid:WaitForChild("Animator")
+local character = player.Character or player.CharacterAdded:Wait()
+local hum = character:WaitForChild("Humanoid")
+local animator = hum:WaitForChild("Animator")
 
--- Setup Animation
-local punchAnim = Instance.new("Animation")
-punchAnim.AnimationId = "rbxassetid://122679000956985"
-local punchTrack = animator:LoadAnimation(punchAnim)
-punchTrack.Priority = Enum.AnimationPriority.Action4 -- Higher priority
+local walkAnimation = animator:LoadAnimation(ReplicatedStorage.Animations:WaitForChild("WalkAnimation"))
+local runAnimation = animator:LoadAnimation(ReplicatedStorage.Animations:WaitForChild("RunAnimation"))
+local punchAnimation = animator:LoadAnimation(ReplicatedStorage.Animations:WaitForChild("PunchAnimation"))
 
-print("Combat Script Loaded Successfully") -- Check your Output for this!
+local animationDelay = 0.2
 
-UIS.InputBegan:Connect(function(input, processed, gps)
-	if processed then return end
-	if gps then return end
-	if character:GetAttribute("IsStunned") == true then 
-		character.Humanoid.WalkSpeed = 0
-		character.Humanoid.JumpPower = 0
-		character.Humanoid.JumpHeight = 0
-		character.HumanoidRootPart.Anchored = true
-		task.delay(2, function() 
-			character.HumanoidRootPart.Anchored = false
-			character.Humanoid.WalkSpeed = 16
-			character.Humanoid.JumpPower = 50
-			character.Humanoid.JumpHeight = 7.2 end)
-		
-	return end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		print("Click detected!") -- Debugging
-		if not punchTrack.IsPlaying then
-			punchTrack:Play()
-			CombatEvent:FireServer("Attack")
-			processed = true
-		end
-	elseif input.KeyCode == Enum.KeyCode.F then
-		CombatEvent:FireServer("Parry")
+local activeKeys = {W=false,A=false,S=false,D=false}
+local isSprinting = false
+
+local doubleTapTime = 0.3
+local lastWPress = 0
+
+local function isMoving()
+	return activeKeys.W or activeKeys.A or activeKeys.S or activeKeys.D
+end
+
+local function playWalk()
+	if runAnimation.IsPlaying then
+		runAnimation:Stop(animationDelay)
 	end
+	if not walkAnimation.IsPlaying then
+		walkAnimation:Play(animationDelay)
+	end
+end
+
+local function playRun()
+	if walkAnimation.IsPlaying then
+		walkAnimation:Stop(animationDelay)
+	end
+	if not runAnimation.IsPlaying then
+		runAnimation:Play(animationDelay)
+	end
+end
+
+local function stopAllMovement()
+	walkAnimation:Stop(animationDelay)
+	runAnimation:Stop(animationDelay)
+end
+
+local function updateMovementAnimation()
+	if isMoving() then
+		if isSprinting then
+			playRun()
+		else
+			playWalk()
+		end
+	else
+		stopAllMovement()
+	end
+end
+
+UIS.InputBegan:Connect(function(input, processed)
+	if processed then return end
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if not punchAnimation.IsPlaying then
+			punchAnimation:Play()
+			InputEvent:FireServer("Attack")
+		end
+
+	elseif input.KeyCode == Enum.KeyCode.F then
+		InputEvent:FireServer("Parry")
+	end
+
+	if input.KeyCode == Enum.KeyCode.W then
+		local now = tick()
+		activeKeys.W = true
+
+		if (now - lastWPress) <= doubleTapTime then
+			if not isSprinting then
+				isSprinting = true
+				InputEvent:FireServer("StartSprint")
+			end
+		end
+
+		lastWPress = now
+
+	elseif input.KeyCode == Enum.KeyCode.A then
+		activeKeys.A = true
+
+	elseif input.KeyCode == Enum.KeyCode.S then
+		activeKeys.S = true
+
+	elseif input.KeyCode == Enum.KeyCode.D then
+		activeKeys.D = true
+	end
+
+	updateMovementAnimation()
 end)
 
+UIS.InputEnded:Connect(function(input, processed)
+	if processed then return end
 
-
-UIS.InputEnded:Connect(function(input, gps)
-	if gps then return end
 	if input.KeyCode == Enum.KeyCode.F then
-		CombatEvent:FireServer("BlockEnd")
+		InputEvent:FireServer("BlockEnd")
+
+	elseif input.KeyCode == Enum.KeyCode.W then
+		activeKeys.W = false
+		if isSprinting then
+			isSprinting = false
+			InputEvent:FireServer("StopSprint")
+		end
+
+	elseif input.KeyCode == Enum.KeyCode.A then
+		activeKeys.A = false
+
+	elseif input.KeyCode == Enum.KeyCode.S then
+		activeKeys.S = false
+
+	elseif input.KeyCode == Enum.KeyCode.D then
+		activeKeys.D = false
 	end
+
+	updateMovementAnimation()
 end)
